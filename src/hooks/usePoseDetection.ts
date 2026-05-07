@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
+import * as tf from '@tensorflow/tfjs';
 
 interface Keypoint {
   x: number;
@@ -57,9 +58,17 @@ export const usePoseDetection = () => {
 
   useEffect(() => {
     let animationId: number;
+    let isInitialized = false;
     
     const init = async () => {
       try {
+        console.log('Initializing TensorFlow.js...');
+        await tf.ready();
+        
+        const backends = tf.getBackend();
+        console.log('TensorFlow.js ready, backend:', backends);
+        
+        console.log('Requesting camera access...');
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             width: 320, 
@@ -67,6 +76,8 @@ export const usePoseDetection = () => {
             facingMode: 'user'
           } 
         });
+        
+        console.log('Camera access granted');
         
         if (!videoRef.current) {
           const video = document.createElement('video');
@@ -80,16 +91,19 @@ export const usePoseDetection = () => {
         }
 
         await videoRef.current.play();
+        console.log('Video started playing');
 
+        console.log('Creating pose detector...');
         const detector = await poseDetection.createDetector(
           poseDetection.SupportedModels.MoveNet,
           { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
         );
         detectorRef.current = detector;
+        isInitialized = true;
         console.log('Pose detector initialized');
 
         const detect = async () => {
-          if (!detectorRef.current || !videoRef.current) return;
+          if (!detectorRef.current || !videoRef.current || !isInitialized) return;
 
           try {
             const poses = await detectorRef.current.estimatePoses(videoRef.current);
@@ -140,6 +154,7 @@ export const usePoseDetection = () => {
     init();
 
     return () => {
+      isInitialized = false;
       if (animationId) {
         cancelAnimationFrame(animationId);
       }
