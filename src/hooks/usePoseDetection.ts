@@ -11,52 +11,63 @@ interface Keypoint {
 
 interface PoseDetectionResult {
   isJumping: boolean;
-  isMovingLeft: boolean;
-  isMovingRight: boolean;
+  moveX: number;
+  moveY: number;
   confidence: number;
   videoElement: HTMLVideoElement | null;
   keypoints: Keypoint[];
   noseY: number;
-  lastY: number;
+  noseX: number;
 }
 
 export const usePoseDetection = () => {
   const [result, setResult] = useState<PoseDetectionResult>({
     isJumping: false,
-    isMovingLeft: false,
-    isMovingRight: false,
+    moveX: 0,
+    moveY: 0,
     confidence: 0,
     videoElement: null,
     keypoints: [],
     noseY: 0,
-    lastY: 0,
+    noseX: 0,
   });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
-  const lastYRef = useRef<number>(0);
-  const lastXRef = useRef<number>(0);
+  const lastYRef = useRef<number>(120);
+  const lastXRef = useRef<number>(160);
   const isJumpingRef = useRef<boolean>(false);
   const jumpCooldownRef = useRef<number>(0);
 
-  const detectJump = useCallback((y: number) => {
-    const jumpThreshold = 25;
+  const detectMovement = useCallback((noseX: number, noseY: number) => {
+    const jumpThreshold = 30;
+    const moveThreshold = 20;
     const timeSinceLastJump = Date.now() - jumpCooldownRef.current;
     
-    if (timeSinceLastJump > 600) {
-      const diff = lastYRef.current - y;
+    const diffY = lastYRef.current - noseY;
+    const diffX = noseX - lastXRef.current;
+
+    if (timeSinceLastJump > 600 && diffY > jumpThreshold && !isJumpingRef.current) {
+      isJumpingRef.current = true;
+      jumpCooldownRef.current = Date.now();
+      setResult(prev => ({ 
+        ...prev, 
+        isJumping: true,
+        moveX: Math.abs(diffX) > moveThreshold ? Math.sign(diffX) * Math.min(1, Math.abs(diffX) / 50) : 0,
+      }));
       
-      if (diff > jumpThreshold && !isJumpingRef.current) {
-        isJumpingRef.current = true;
-        jumpCooldownRef.current = Date.now();
-        setResult(prev => ({ ...prev, isJumping: true }));
-        
-        setTimeout(() => {
-          isJumpingRef.current = false;
-          setResult(prev => ({ ...prev, isJumping: false }));
-        }, 400);
-      }
+      setTimeout(() => {
+        isJumpingRef.current = false;
+        setResult(prev => ({ ...prev, isJumping: false, moveX: 0 }));
+      }, 400);
+    } else {
+      setResult(prev => ({ 
+        ...prev, 
+        moveX: Math.abs(diffX) > moveThreshold ? Math.sign(diffX) * Math.min(1, Math.abs(diffX) / 50) : 0,
+      }));
     }
-    lastYRef.current = y;
+    
+    lastYRef.current = noseY;
+    lastXRef.current = noseX;
   }, []);
 
   useEffect(() => {
@@ -105,8 +116,6 @@ export const usePoseDetection = () => {
             if (poses.length > 0) {
               const pose = poses[0];
               const nose = pose.keypoints.find(k => k.name === 'nose');
-              const leftShoulder = pose.keypoints.find(k => k.name === 'left_shoulder');
-              const rightShoulder = pose.keypoints.find(k => k.name === 'right_shoulder');
               
               const keypoints = pose.keypoints
                 .filter(k => k.score > 0.25)
@@ -117,42 +126,20 @@ export const usePoseDetection = () => {
                   name: k.name
                 }));
               
-              let isMovingLeft = false;
-              let isMovingRight = false;
-              
-              if (leftShoulder && rightShoulder && 
-                  leftShoulder.score > 0.3 && rightShoulder.score > 0.3) {
-                const shoulderDiff = rightShoulder.x - leftShoulder.x;
-                const lastShoulderDiff = lastXRef.current !== 0 ? lastYRef.current : shoulderDiff;
-                
-                if (Math.abs(shoulderDiff - lastShoulderDiff) > 30) {
-                  if (shoulderDiff < lastShoulderDiff) {
-                    isMovingLeft = true;
-                  } else {
-                    isMovingRight = true;
-                  }
-                }
-                lastXRef.current = shoulderDiff;
-              }
-              
               if (nose && nose.score > 0.25) {
-                detectJump(nose.y);
+                detectMovement(nose.x, nose.y);
                 setResult(prev => ({ 
                   ...prev, 
                   confidence: nose.score,
                   keypoints,
                   noseY: nose.y,
-                  lastY: lastYRef.current,
-                  isMovingLeft,
-                  isMovingRight,
+                  noseX: nose.x,
                 }));
               } else {
                 setResult(prev => ({ 
                   ...prev, 
                   keypoints,
                   confidence: nose?.score || 0,
-                  isMovingLeft,
-                  isMovingRight,
                 }));
               }
             }
@@ -184,7 +171,7 @@ export const usePoseDetection = () => {
         detectorRef.current.dispose();
       }
     };
-  }, [detectJump]);
+  }, [detectMovement]);
 
   return result;
 };

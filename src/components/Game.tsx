@@ -14,27 +14,25 @@ interface GameState {
   fishCollected: number;
   isGameOver: boolean;
   isPlaying: boolean;
-  penguinLane: number;
+  penguinPosition: number;
   isJumping: boolean;
   objects: MovingObject[];
   difficulty: number;
 }
 
-const LANE_COUNT = 5;
-const BASE_PENGUIN_Y = 90;
-const VANISHING_POINT_X = 50;
-const VANISHING_POINT_Y = 67;
-const ICE_ZONE_TOP = 67;
+const BASE_PENGUIN_Y = 88;
+const VANISHING_POINT_Y = 70;
+const ICE_ZONE_TOP = 70;
+const ICE_ZONE_BOTTOM = 88;
 
 export const Game = () => {
   const { 
     isJumping: detectedJump, 
-    isMovingLeft: detectedLeft,
-    isMovingRight: detectedRight,
+    moveX,
     videoElement, 
     keypoints, 
     confidence,
-    noseY,
+    noseX,
   } = usePoseDetection();
   
   const [gameState, setGameState] = useState<GameState>({
@@ -42,7 +40,7 @@ export const Game = () => {
     fishCollected: 0,
     isGameOver: false,
     isPlaying: false,
-    penguinLane: Math.floor(LANE_COUNT / 2),
+    penguinPosition: 0.5,
     isJumping: false,
     objects: [],
     difficulty: 1,
@@ -125,10 +123,9 @@ export const Game = () => {
   }, [videoElement, keypoints]);
 
   const getLaneX = (lane: number, progress: number) => {
-    const laneWidth = 100 / (LANE_COUNT - 1);
-    const endX = laneWidth * lane;
-    const x = 50 + (endX - 50) * progress;
-    return x;
+    const laneStartX = 20 + lane * 15;
+    const x = 50 + (laneStartX - 50) * progress;
+    return Math.max(20, Math.min(80, x));
   };
 
   const getObjectY = (progress: number) => {
@@ -158,7 +155,7 @@ export const Game = () => {
     if (!gameState.isPlaying || gameState.isGameOver) return;
     setGameState(prev => ({ 
       ...prev, 
-      penguinLane: Math.max(0, prev.penguinLane - 1) 
+      penguinPosition: Math.max(0.2, prev.penguinPosition - 0.15) 
     }));
   }, [gameState.isPlaying, gameState.isGameOver]);
 
@@ -166,7 +163,7 @@ export const Game = () => {
     if (!gameState.isPlaying || gameState.isGameOver) return;
     setGameState(prev => ({ 
       ...prev, 
-      penguinLane: Math.min(LANE_COUNT - 1, prev.penguinLane + 1) 
+      penguinPosition: Math.min(0.8, prev.penguinPosition + 0.15) 
     }));
   }, [gameState.isPlaying, gameState.isGameOver]);
 
@@ -177,16 +174,22 @@ export const Game = () => {
   }, [detectedJump, handleJump]);
 
   useEffect(() => {
-    if (detectedLeft) {
-      handleMoveLeft();
+    if (moveX !== 0 && gameState.isPlaying) {
+      if (moveX < 0) {
+        handleMoveLeft();
+      } else {
+        handleMoveRight();
+      }
     }
-  }, [detectedLeft, handleMoveLeft]);
+  }, [moveX, gameState.isPlaying, handleMoveLeft, handleMoveRight]);
 
   useEffect(() => {
-    if (detectedRight) {
-      handleMoveRight();
+    if (noseX > 0 && gameState.isPlaying) {
+      const normalizedX = 1 - (noseX / 320);
+      const clampedX = Math.max(0.2, Math.min(0.8, 0.2 + normalizedX * 0.6));
+      setGameState(prev => ({ ...prev, penguinPosition: clampedX }));
     }
-  }, [detectedRight, handleMoveRight]);
+  }, [noseX, gameState.isPlaying]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -218,7 +221,7 @@ export const Game = () => {
       fishCollected: 0,
       isGameOver: false,
       isPlaying: true,
-      penguinLane: Math.floor(LANE_COUNT / 2),
+      penguinPosition: 0.5,
       isJumping: false,
       objects: [],
       difficulty: 1,
@@ -266,15 +269,16 @@ export const Game = () => {
                 return false;
               }
 
-              const penguinLane = prev.penguinLane;
-              const isAtPenguin = obj.lane === penguinLane;
+              const penguinPos = prev.penguinPosition;
+              const objLanePos = 0.2 + (obj.lane / 4) * 0.6;
+              const isNearPenguin = Math.abs(objLanePos - penguinPos) < 0.15;
 
-              if (obj.type === 'fish' && isAtPenguin && prev.isJumping) {
+              if (obj.type === 'fish' && isNearPenguin && prev.isJumping) {
                 fishCaught++;
                 return false;
               }
 
-              if (obj.type === 'hole' && isAtPenguin && !prev.isJumping) {
+              if (obj.type === 'hole' && isNearPenguin && !prev.isJumping) {
                 collision = true;
                 return false;
               }
@@ -395,7 +399,8 @@ export const Game = () => {
         <div style={{
           position: 'absolute',
           top: `${VANISHING_POINT_Y}%`,
-          left: `${VANISHING_POINT_X}%`,
+          left: '50%',
+          transform: 'translateX(-50%)',
           width: 4,
           height: 4,
           background: '#fff',
@@ -403,47 +408,29 @@ export const Game = () => {
           boxShadow: '0 0 20px #fff',
         }} />
 
-        {[...Array(LANE_COUNT)].map((_, lane) => {
-          const startX = lane * (100 / (LANE_COUNT - 1));
-          const angle = Math.atan2(BASE_PENGUIN_Y - VANISHING_POINT_Y, startX - VANISHING_POINT_X);
+        {[...Array(5)].map((_, lane) => {
+          const startX = 20 + lane * 15;
           return (
             <div
               key={`grid-${lane}`}
               style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                background: `linear-gradient(to bottom, transparent 0%, transparent ${VANISHING_POINT_Y}%, rgba(255,255,255,0.1) 100%)`,
-                backgroundImage: `linear-gradient(to bottom, transparent ${VANISHING_POINT_Y}%, rgba(255,255,255,0.05) 100%)`,
-                backgroundSize: '100% 100%',
-                backgroundPosition: 'center',
+                top: `${VANISHING_POINT_Y}%`,
+                left: `${startX}%`,
+                width: 2,
+                height: `${ICE_ZONE_BOTTOM - ICE_ZONE_TOP}%`,
+                background: 'linear-gradient(to bottom, rgba(150,200,255,0.3), rgba(150,200,255,0.6))',
+                transformOrigin: 'top center',
               }}
             />
           );
         })}
 
-        {[...Array(10)].map((_, i) => (
-          <div
-            key={`horizon-${i}`}
-            style={{
-              position: 'absolute',
-              top: `${VANISHING_POINT_Y + (BASE_PENGUIN_Y - VANISHING_POINT_Y) * (i / 10)}%`,
-              left: 0,
-              width: '100%',
-              height: 1,
-              background: 'rgba(255,255,255,0.05)',
-              transform: 'scaleY(1)',
-            }}
-          />
-        ))}
-
         {gameState.objects.map(obj => {
           const x = getLaneX(obj.lane, obj.progress);
           const y = getObjectY(obj.progress);
           const scale = getObjectScale(obj.progress);
-          const size = obj.type === 'hole' ? 350 : 50;
+          const size = obj.type === 'hole' ? 200 : 50;
 
           return (
             <div
@@ -516,7 +503,7 @@ export const Game = () => {
         <div
           style={{
             position: 'absolute',
-            left: `${gameState.penguinLane * (100 / (LANE_COUNT - 1))}%`,
+            left: `${gameState.penguinPosition * 100}%`,
             top: `${BASE_PENGUIN_Y}%`,
             transform: `translate(-50%, -100%) ${gameState.isJumping ? 'translateY(-30px)' : ''}`,
             transition: 'left 0.15s ease-out, transform 0.3s ease-out',
