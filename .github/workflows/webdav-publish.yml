@@ -39,12 +39,15 @@ jobs:
 
       - name: Clean remote directory
         run: |
-          curl -s -X DELETE \
-            -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
-            "${{ secrets.WEBDAV_URL }}/online/penguin-hop" || true
+          for i in {1..3}; do
+            curl -s -X DELETE \
+              -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+              "${{ secrets.WEBDAV_URL }}/online/penguin-hop" && break
+            sleep 1
+          done
           curl -s -X MKCOL \
             -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
-            "${{ secrets.WEBDAV_URL }}/online/penguin-hop" || true
+            "${{ secrets.WEBDAV_URL }}/online/penguin-hop"
 
       - name: Upload to WebDAV
         uses: weijia/action-upload-webdav@master
