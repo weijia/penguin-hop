@@ -49,6 +49,53 @@ export const Game = () => {
   const lastSpawnTimeRef = useRef(0);
   const jumpTimeoutRef = useRef<number>();
   const objectIdRef = useRef(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let animationId: number;
+    
+    const drawKeypoints = () => {
+      if (!canvasRef.current || !videoElement) return;
+      
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = '#00ff00';
+      ctx.fillStyle = '#00ff00';
+      ctx.lineWidth = 2;
+
+      const scaleX = canvas.width / videoElement.videoWidth;
+      const scaleY = canvas.height / videoElement.videoHeight;
+
+      keypoints.forEach(point => {
+        const x = point.x * scaleX;
+        const y = point.y * scaleY;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        if (point.name) {
+          ctx.font = '10px Arial';
+          ctx.fillText(point.name!, x + 5, y - 5);
+        }
+      });
+
+      animationId = requestAnimationFrame(drawKeypoints);
+    };
+
+    drawKeypoints();
+
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [videoElement, keypoints]);
 
   const getLaneX = (lane: number, progress: number) => {
     const laneWidth = 100 / (LANE_COUNT - 1);
@@ -254,6 +301,21 @@ export const Game = () => {
       </div>
 
       <div className="camera-container" style={{ bottom: 20, left: 20, top: 'auto' }}>
+        <canvas 
+          ref={canvasRef}
+          width={320}
+          height={240}
+          style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            width: '100%', 
+            height: '100%',
+            pointerEvents: 'none',
+            transform: 'scaleX(-1)',
+            zIndex: 2,
+          }} 
+        />
         {videoElement && (
           <video 
             ref={el => { 
@@ -276,6 +338,7 @@ export const Game = () => {
           fontSize: '10px',
           padding: '3px',
           borderRadius: '3px',
+          zIndex: 3,
         }}>
           置信度: {(confidence * 100).toFixed(0)}%
         </div>
