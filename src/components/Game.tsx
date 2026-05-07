@@ -245,7 +245,7 @@ export const Game = () => {
         const newObjects = [...prev.objects];
 
         if (now - lastSpawnTimeRef.current > spawnInterval) {
-          const lane = Math.floor(Math.random() * LANE_COUNT);
+          const lane = Math.floor(Math.random() * 5);
           const type = Math.random() > 0.3 ? 'hole' : 'fish';
           newObjects.push({
             id: objectIdRef.current++,
