@@ -1,27 +1,29 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Penguin } from './Penguin';
-import { IceHole } from './IceHole';
-import { Snowflake } from './Snowflake';
 import { usePoseDetection } from '../hooks/usePoseDetection';
+
+interface MovingObject {
+  id: number;
+  type: 'hole' | 'fish';
+  lane: number;
+  progress: number;
+  caught?: boolean;
+}
 
 interface GameState {
   score: number;
+  fishCollected: number;
   isGameOver: boolean;
   isPlaying: boolean;
-  penguinLeft: number;
-  penguinBottom: number;
+  penguinLane: number;
   isJumping: boolean;
-  holes: { id: number; left: number }[];
-  gameSpeed: number;
+  objects: MovingObject[];
+  difficulty: number;
 }
 
-const GAME_WIDTH = typeof window !== 'undefined' ? window.innerWidth : 1200;
-const GAME_HEIGHT = typeof window !== 'undefined' ? window.innerHeight : 800;
-const PLATFORM_HEIGHT = 120;
-const PENGUIN_WIDTH = 60;
-const HOLE_WIDTH = 80;
-const HOLE_GAP_MIN = 200;
-const HOLE_GAP_MAX = 400;
+const LANE_COUNT = 5;
+const BASE_PENGUIN_Y = 85;
+const VANISHING_POINT_X = 50;
+const VANISHING_POINT_Y = 30;
 
 export const Game = () => {
   const { 
@@ -30,101 +32,69 @@ export const Game = () => {
     keypoints, 
     confidence,
     noseY,
-    lastY 
   } = usePoseDetection();
   
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
+    fishCollected: 0,
     isGameOver: false,
     isPlaying: false,
-    penguinLeft: 100,
-    penguinBottom: PLATFORM_HEIGHT,
+    penguinLane: Math.floor(LANE_COUNT / 2),
     isJumping: false,
-    holes: [],
-    gameSpeed: 3,
+    objects: [],
+    difficulty: 1,
   });
 
-  const jumpVelocityRef = useRef(0);
-  const lastHoleIdRef = useRef(0);
   const animationFrameRef = useRef<number>();
-  const lastHoleTimeRef = useRef(0);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const lastSpawnTimeRef = useRef(0);
+  const jumpTimeoutRef = useRef<number>();
+  const objectIdRef = useRef(0);
 
-  useEffect(() => {
-    if (videoElement && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        canvas.width = 320;
-        canvas.height = 240;
-      }
-    }
-  }, [videoElement]);
-
-  useEffect(() => {
-    if (!videoElement || !canvasRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-    ctx.strokeStyle = '#00ff00';
-    ctx.fillStyle = '#00ff00';
-    ctx.lineWidth = 2;
-
-    const scaleX = canvas.width / videoElement.videoWidth;
-    const scaleY = canvas.height / videoElement.videoHeight;
-
-    keypoints.forEach(point => {
-      const x = point.x * scaleX;
-      const y = point.y * scaleY;
-      
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, 2 * Math.PI);
-      ctx.fill();
-      
-      if (point.name) {
-        ctx.font = '10px Arial';
-        ctx.fillText(point.name, x + 5, y - 5);
-      }
-    });
-
-    if (noseY > 0) {
-      const y = noseY * scaleY;
-      ctx.strokeStyle = '#ff0000';
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
-  }, [keypoints, videoElement, noseY]);
-
-  const generateSnowflakes = () => {
-    const flakes = [];
-    for (let i = 0; i < 30; i++) {
-      flakes.push({
-        id: i,
-        left: Math.random() * 100,
-        delay: Math.random() * 10,
-        duration: 5 + Math.random() * 10,
-        size: 3 + Math.random() * 8,
-      });
-    }
-    return flakes;
+  const getLaneX = (lane: number, progress: number) => {
+    const laneWidth = 100 / (LANE_COUNT - 1);
+    const startX = laneWidth * lane;
+    const x = startX + (50 - startX) * progress;
+    return x;
   };
 
-  const snowflakes = generateSnowflakes();
+  const getObjectY = (progress: number) => {
+    const startY = VANISHING_POINT_Y;
+    const endY = BASE_PENGUIN_Y;
+    return startY + (endY - startY) * progress;
+  };
+
+  const getObjectScale = (progress: number) => {
+    return 0.2 + progress * 0.8;
+  };
 
   const handleJump = useCallback(() => {
     if (!gameState.isPlaying || gameState.isGameOver || gameState.isJumping) return;
     
     setGameState(prev => ({ ...prev, isJumping: true }));
-    jumpVelocityRef.current = 15;
+    
+    if (jumpTimeoutRef.current) {
+      clearTimeout(jumpTimeoutRef.current);
+    }
+    jumpTimeoutRef.current = window.setTimeout(() => {
+      setGameState(prev => ({ ...prev, isJumping: false }));
+    }, 500);
   }, [gameState.isPlaying, gameState.isGameOver, gameState.isJumping]);
+
+  const handleMoveLeft = useCallback(() => {
+    if (!gameState.isPlaying || gameState.isGameOver) return;
+    setGameState(prev => ({ 
+      ...prev, 
+      penguinLane: Math.max(0, prev.penguinLane - 1) 
+    }));
+  }, [gameState.isPlaying, gameState.isGameOver]);
+
+  const handleMoveRight = useCallback(() => {
+    if (!gameState.isPlaying || gameState.isGameOver) return;
+    setGameState(prev => ({ 
+      ...prev, 
+      penguinLane: Math.min(LANE_COUNT - 1, prev.penguinLane + 1) 
+    }));
+  }, [gameState.isPlaying, gameState.isGameOver]);
 
   useEffect(() => {
     if (detectedJump) {
@@ -141,107 +111,112 @@ export const Game = () => {
         } else {
           handleJump();
         }
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        handleMoveLeft();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        handleMoveRight();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState.isPlaying, gameState.isGameOver, handleJump]);
+  }, [gameState.isPlaying, gameState.isGameOver, handleJump, handleMoveLeft, handleMoveRight]);
 
   const startGame = () => {
+    objectIdRef.current = 0;
+    lastSpawnTimeRef.current = Date.now();
     setGameState({
       score: 0,
+      fishCollected: 0,
       isGameOver: false,
       isPlaying: true,
-      penguinLeft: 100,
-      penguinBottom: PLATFORM_HEIGHT,
+      penguinLane: Math.floor(LANE_COUNT / 2),
       isJumping: false,
-      holes: [{ id: 0, left: GAME_WIDTH + 100 }],
-      gameSpeed: 3,
+      objects: [],
+      difficulty: 1,
     });
-    lastHoleIdRef.current = 1;
-    lastHoleTimeRef.current = Date.now();
-    jumpVelocityRef.current = 0;
-  };
-
-  const endGame = () => {
-    setGameState(prev => ({ ...prev, isGameOver: true, isPlaying: false }));
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
   };
 
   useEffect(() => {
     if (!gameState.isPlaying || gameState.isGameOver) return;
 
+    let lastTime = Date.now();
+
     const gameLoop = () => {
+      const now = Date.now();
+      const deltaTime = (now - lastTime) / 1000;
+      lastTime = now;
+
       setGameState(prev => {
-        const newHoles = prev.holes
-          .map(hole => ({ ...hole, left: hole.left - prev.gameSpeed }))
-          .filter(hole => hole.left > -HOLE_WIDTH);
+        if (!prev.isPlaying || prev.isGameOver) return prev;
 
-        const now = Date.now();
-        const timeSinceLastHole = now - lastHoleTimeRef.current;
-        const minTimeBetweenHoles = Math.max(800, 2000 - prev.score * 50);
+        const spawnInterval = Math.max(800, 1500 - prev.difficulty * 100);
+        const newObjects = [...prev.objects];
 
-        if (timeSinceLastHole > minTimeBetweenHoles && newHoles.length < 5) {
-          const lastHole = newHoles[newHoles.length - 1];
-          const lastHoleRight = lastHole ? lastHole.left + HOLE_WIDTH : GAME_WIDTH;
-          const gap = HOLE_GAP_MIN + Math.random() * (HOLE_GAP_MAX - HOLE_GAP_MIN);
-          newHoles.push({
-            id: lastHoleIdRef.current++,
-            left: lastHoleRight + gap,
+        if (now - lastSpawnTimeRef.current > spawnInterval) {
+          const lane = Math.floor(Math.random() * LANE_COUNT);
+          const type = Math.random() > 0.3 ? 'hole' : 'fish';
+          newObjects.push({
+            id: objectIdRef.current++,
+            type,
+            lane,
+            progress: 0,
+            caught: false,
           });
-          lastHoleTimeRef.current = now;
+          lastSpawnTimeRef.current = now;
         }
 
-        let newBottom = prev.penguinBottom;
-        let newIsJumping = prev.isJumping;
+        const moveSpeed = 0.3 * prev.difficulty * deltaTime;
+        let collision = false;
+        let fishCaught = 0;
 
-        if (jumpVelocityRef.current > 0 || prev.isJumping) {
-          jumpVelocityRef.current -= 0.8;
-          newBottom += jumpVelocityRef.current;
-          newIsJumping = true;
+        const updatedObjects = newObjects
+          .map(obj => ({ ...obj, progress: obj.progress + moveSpeed }))
+          .filter(obj => {
+            if (obj.progress >= 1) {
+              if (obj.progress >= 1.1) {
+                return false;
+              }
 
-          if (newBottom <= PLATFORM_HEIGHT) {
-            newBottom = PLATFORM_HEIGHT;
-            newIsJumping = false;
-            jumpVelocityRef.current = 0;
-          }
-        }
+              const penguinLane = prev.penguinLane;
+              const isAtPenguin = obj.lane === penguinLane;
 
-        const penguinRight = prev.penguinLeft + PENGUIN_WIDTH;
-        const penguinCenter = prev.penguinLeft + PENGUIN_WIDTH / 2;
+              if (obj.type === 'fish' && isAtPenguin && prev.isJumping) {
+                fishCaught++;
+                return false;
+              }
 
-        for (const hole of newHoles) {
-          const holeRight = hole.left + HOLE_WIDTH;
-          if (
-            penguinRight > hole.left &&
-            prev.penguinLeft < holeRight &&
-            newBottom <= PLATFORM_HEIGHT + 10
-          ) {
-            if (!(penguinCenter > hole.left && penguinCenter < holeRight)) {
-              const newScore = prev.score + 1;
-              return {
-                ...prev,
-                holes: newHoles,
-                penguinBottom: newBottom,
-                isJumping: newIsJumping,
-                score: newScore,
-                gameSpeed: Math.min(8, 3 + Math.floor(newScore / 5) * 0.5),
-              };
-            } else {
-              endGame();
-              return prev;
+              if (obj.type === 'hole' && isAtPenguin && !prev.isJumping) {
+                collision = true;
+                return false;
+              }
+
+              return false;
             }
-          }
+            return true;
+          });
+
+        if (collision) {
+          return {
+            ...prev,
+            isGameOver: true,
+            isPlaying: false,
+            objects: updatedObjects,
+          };
         }
+
+        const newScore = prev.score + 1;
+        const newFishCollected = prev.fishCollected + fishCaught;
+        const newDifficulty = Math.min(10, 1 + Math.floor(newScore / 10) * 0.5);
 
         return {
           ...prev,
-          holes: newHoles,
-          penguinBottom: newBottom,
-          isJumping: newIsJumping,
+          objects: updatedObjects,
+          score: newScore,
+          fishCollected: newFishCollected,
+          difficulty: newDifficulty,
         };
       });
 
@@ -257,86 +232,310 @@ export const Game = () => {
     };
   }, [gameState.isPlaying, gameState.isGameOver]);
 
+  useEffect(() => {
+    return () => {
+      if (jumpTimeoutRef.current) {
+        clearTimeout(jumpTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <div className="game-container">
-      <div className="score-display">分数: {gameState.score}</div>
+    <div className="game-container" style={{ background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+      <div className="score-display">
+        <div>分数: {gameState.score}</div>
+        <div>🐟 鱼: {gameState.fishCollected}</div>
+      </div>
       
       <div className="instruction">
-        <div>🎮 跳起来躲避冰窟!</div>
-        <div>摄像头检测你的跳跃动作</div>
-        <div>或按空格键/上键跳跃</div>
+        <div>🎮 躲避冰窟，吃小鱼！</div>
+        <div>← → 移动 | 空格/上 跳跃</div>
+        <div>摄像头跳跃检测</div>
       </div>
 
-      <div className="camera-container" ref={videoContainerRef}>
-        <video 
-          ref={el => { 
-            if (el && videoElement) {
-              el.srcObject = videoElement.srcObject;
-            }
-          }} 
-          autoPlay 
-          playsInline 
-          muted
-          style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
-        />
-        <canvas 
-          ref={canvasRef}
-          style={{ 
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            width: '100%', 
-            height: '100%',
-            pointerEvents: 'none',
-            transform: 'scaleX(-1)'
-          }} 
-        />
+      <div className="camera-container" style={{ top: 20, left: 20 }}>
+        {videoElement && (
+          <video 
+            ref={el => { 
+              if (el && videoElement) {
+                el.srcObject = videoElement.srcObject;
+              }
+            }} 
+            autoPlay 
+            playsInline 
+            muted
+            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+          />
+        )}
         <div style={{
           position: 'absolute',
           bottom: '5px',
           left: '5px',
-          right: '5px',
           background: 'rgba(0,0,0,0.7)',
           color: 'white',
           fontSize: '10px',
           padding: '3px',
           borderRadius: '3px',
         }}>
-          置信度: {(confidence * 100).toFixed(0)}% | 鼻Y: {noseY.toFixed(0)}
+          置信度: {(confidence * 100).toFixed(0)}%
         </div>
       </div>
 
-      {snowflakes.map(flake => (
-        <Snowflake
-          key={flake.id}
-          left={flake.left}
-          delay={flake.delay}
-          duration={flake.duration}
-          size={flake.size}
-        />
-      ))}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        perspective: '500px',
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: `${VANISHING_POINT_Y}%`,
+          left: `${VANISHING_POINT_X}%`,
+          width: 4,
+          height: 4,
+          background: '#fff',
+          borderRadius: '50%',
+          boxShadow: '0 0 20px #fff',
+        }} />
 
-      <div className="mountain" style={{ left: '10%' }} />
-      <div className="mountain small" style={{ left: '18%' }} />
-      <div className="mountain snow" style={{ left: '60%' }} />
-      <div className="mountain" style={{ left: '75%' }} />
+        {[...Array(LANE_COUNT)].map((_, lane) => {
+          const startX = lane * (100 / (LANE_COUNT - 1));
+          const angle = Math.atan2(BASE_PENGUIN_Y - VANISHING_POINT_Y, startX - VANISHING_POINT_X);
+          return (
+            <div
+              key={`grid-${lane}`}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                background: `linear-gradient(to bottom, transparent 0%, transparent ${VANISHING_POINT_Y}%, rgba(255,255,255,0.1) 100%)`,
+                backgroundImage: `linear-gradient(to bottom, transparent ${VANISHING_POINT_Y}%, rgba(255,255,255,0.05) 100%)`,
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
+              }}
+            />
+          );
+        })}
 
-      {gameState.holes.map(hole => (
-        <IceHole key={hole.id} left={hole.left} />
-      ))}
+        {[...Array(10)].map((_, i) => (
+          <div
+            key={`horizon-${i}`}
+            style={{
+              position: 'absolute',
+              top: `${VANISHING_POINT_Y + (BASE_PENGUIN_Y - VANISHING_POINT_Y) * (i / 10)}%`,
+              left: 0,
+              width: '100%',
+              height: 1,
+              background: 'rgba(255,255,255,0.05)',
+              transform: 'scaleY(1)',
+            }}
+          />
+        ))}
 
-      <Penguin
-        left={gameState.penguinLeft}
-        bottom={gameState.penguinBottom}
-        isJumping={gameState.isJumping}
-      />
+        {gameState.objects.map(obj => {
+          const x = getLaneX(obj.lane, obj.progress);
+          const y = getObjectY(obj.progress);
+          const scale = getObjectScale(obj.progress);
+          const size = obj.type === 'hole' ? 30 : 20;
 
-      <div className="ice-platform" />
+          return (
+            <div
+              key={obj.id}
+              style={{
+                position: 'absolute',
+                left: `${x}%`,
+                top: `${y}%`,
+                transform: `translate(-50%, -50%) scale(${scale})`,
+                width: size,
+                height: size,
+                transition: 'transform 0.05s linear',
+              }}
+            >
+              {obj.type === 'hole' ? (
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  background: 'radial-gradient(ellipse at center, #0a0a1a 0%, #1a1a3a 100%)',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 10px rgba(0,0,0,0.8)',
+                  border: '2px solid rgba(100,150,200,0.3)',
+                }} />
+              ) : (
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  animation: 'fishBounce 0.3s ease-in-out infinite',
+                }}>
+                  🐟
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        <div style={{
+          position: 'absolute',
+          top: `${BASE_PENGUIN_Y + 5}%`,
+          left: 0,
+          width: '100%',
+          height: '20%',
+          background: 'linear-gradient(180deg, rgba(100,150,200,0.3) 0%, rgba(100,150,200,0.8) 100%)',
+          borderTop: '3px solid rgba(150,200,255,0.5)',
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundImage: `
+              repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 19%,
+                rgba(255,255,255,0.1) 19%,
+                rgba(255,255,255,0.1) 20%
+              )
+            `,
+          }} />
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: `${gameState.penguinLane * (100 / (LANE_COUNT - 1))}%`,
+            top: `${BASE_PENGUIN_Y}%`,
+            transform: `translate(-50%, -100%) ${gameState.isJumping ? 'translateY(-30px)' : ''}`,
+            transition: 'left 0.15s ease-out, transform 0.3s ease-out',
+            zIndex: 10,
+          }}
+        >
+          <div style={{
+            width: 50,
+            height: 60,
+            position: 'relative',
+          }}>
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 40,
+              height: 45,
+              background: '#1a1a1a',
+              borderRadius: '50% 50% 45% 45%',
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: 5,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 30,
+                height: 25,
+                background: 'white',
+                borderRadius: '50%',
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 5,
+                  left: 5,
+                  width: 5,
+                  height: 5,
+                  background: '#1a1a1a',
+                  borderRadius: '50%',
+                }} />
+                <div style={{
+                  position: 'absolute',
+                  top: 5,
+                  right: 5,
+                  width: 5,
+                  height: 5,
+                  background: '#1a1a1a',
+                  borderRadius: '50%',
+                }} />
+                <div style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 8,
+                  height: 5,
+                  background: '#FF9800',
+                  borderRadius: '50%',
+                }} />
+              </div>
+              <div style={{
+                position: 'absolute',
+                top: -15,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 30,
+                height: 30,
+                background: '#1a1a1a',
+                borderRadius: '50%',
+              }} />
+              <div style={{
+                position: 'absolute',
+                bottom: -5,
+                left: 5,
+                width: 12,
+                height: 8,
+                background: '#FF9800',
+                borderRadius: '50%',
+              }} />
+              <div style={{
+                position: 'absolute',
+                bottom: -5,
+                right: 5,
+                width: 12,
+                height: 8,
+                background: '#FF9800',
+                borderRadius: '50%',
+              }} />
+            </div>
+            {gameState.isJumping && (
+              <div style={{
+                position: 'absolute',
+                bottom: -10,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '20px',
+                animation: 'jumpUp 0.5s ease-out',
+              }}>
+                ✨
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fishBounce {
+          0%, 100% { transform: translateY(0) rotate(-10deg); }
+          50% { transform: translateY(-5px) rotate(10deg); }
+        }
+        @keyframes jumpUp {
+          0% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-20px); }
+        }
+      `}</style>
 
       {gameState.isGameOver && (
         <div className="game-over-overlay">
           <div className="game-over-title">❄️ 游戏结束 ❄️</div>
-          <div className="game-over-score">最终得分: {gameState.score}</div>
+          <div className="game-over-score">
+            最终得分: {gameState.score}<br />
+            收集小鱼: {gameState.fishCollected} 🐟
+          </div>
           <button className="start-button" onClick={startGame}>
             重新开始
           </button>
@@ -345,9 +544,12 @@ export const Game = () => {
 
       {!gameState.isPlaying && !gameState.isGameOver && (
         <div className="game-over-overlay">
-          <div className="game-over-title">🐧 企鹅跳冰窟 🐧</div>
-          <div className="game-over-score" style={{ color: '#fff' }}>
-            使用摄像头检测跳跃动作来控制企鹅
+          <div className="game-over-title">🐧 企鹅冰窟历险 🐧</div>
+          <div className="game-over-score" style={{ color: '#fff', fontSize: '1rem', lineHeight: 1.8 }}>
+            从远处飞来的冰窟和鱼！<br />
+            ← → 移动位置<br />
+            空格/上 跳跃躲避<br />
+            摄像头检测跳跃动作
           </div>
           <button className="start-button" onClick={startGame}>
             开始游戏
