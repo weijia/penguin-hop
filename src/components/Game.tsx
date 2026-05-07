@@ -24,7 +24,15 @@ const HOLE_GAP_MIN = 200;
 const HOLE_GAP_MAX = 400;
 
 export const Game = () => {
-  const { isJumping: detectedJump } = usePoseDetection();
+  const { 
+    isJumping: detectedJump, 
+    videoElement, 
+    keypoints, 
+    confidence,
+    noseY,
+    lastY 
+  } = usePoseDetection();
+  
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
     isGameOver: false,
@@ -40,6 +48,60 @@ export const Game = () => {
   const lastHoleIdRef = useRef(0);
   const animationFrameRef = useRef<number>();
   const lastHoleTimeRef = useRef(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (videoElement && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        canvas.width = 320;
+        canvas.height = 240;
+      }
+    }
+  }, [videoElement]);
+
+  useEffect(() => {
+    if (!videoElement || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#00ff00';
+    ctx.fillStyle = '#00ff00';
+    ctx.lineWidth = 2;
+
+    const scaleX = canvas.width / videoElement.videoWidth;
+    const scaleY = canvas.height / videoElement.videoHeight;
+
+    keypoints.forEach(point => {
+      const x = point.x * scaleX;
+      const y = point.y * scaleY;
+      
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      if (point.name) {
+        ctx.font = '10px Arial';
+        ctx.fillText(point.name, x + 5, y - 5);
+      }
+    });
+
+    if (noseY > 0) {
+      const y = noseY * scaleY;
+      ctx.strokeStyle = '#ff0000';
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+  }, [keypoints, videoElement, noseY]);
 
   const generateSnowflakes = () => {
     const flakes = [];
@@ -203,6 +265,45 @@ export const Game = () => {
         <div>🎮 跳起来躲避冰窟!</div>
         <div>摄像头检测你的跳跃动作</div>
         <div>或按空格键/上键跳跃</div>
+      </div>
+
+      <div className="camera-container" ref={videoContainerRef}>
+        <video 
+          ref={el => { 
+            if (el && videoElement) {
+              el.srcObject = videoElement.srcObject;
+            }
+          }} 
+          autoPlay 
+          playsInline 
+          muted
+          style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+        />
+        <canvas 
+          ref={canvasRef}
+          style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            width: '100%', 
+            height: '100%',
+            pointerEvents: 'none',
+            transform: 'scaleX(-1)'
+          }} 
+        />
+        <div style={{
+          position: 'absolute',
+          bottom: '5px',
+          left: '5px',
+          right: '5px',
+          background: 'rgba(0,0,0,0.7)',
+          color: 'white',
+          fontSize: '10px',
+          padding: '3px',
+          borderRadius: '3px',
+        }}>
+          置信度: {(confidence * 100).toFixed(0)}% | 鼻Y: {noseY.toFixed(0)}
+        </div>
       </div>
 
       {snowflakes.map(flake => (
