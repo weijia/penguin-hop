@@ -152,7 +152,7 @@ export const Game = () => {
       setGameState(prev => {
         if (!prev.isPlaying || prev.isGameOver) return prev;
 
-        const spawnInterval = Math.max(800, 1500 - prev.difficulty * 100);
+        const spawnInterval = Math.max(1000, 2000 - prev.difficulty * 100);
         const newObjects = [...prev.objects];
 
         if (now - lastSpawnTimeRef.current > spawnInterval) {
@@ -168,7 +168,7 @@ export const Game = () => {
           lastSpawnTimeRef.current = now;
         }
 
-        const moveSpeed = 0.3 * prev.difficulty * deltaTime;
+        const moveSpeed = 0.15 * prev.difficulty * deltaTime;
         let collision = false;
         let fishCaught = 0;
 
@@ -242,18 +242,18 @@ export const Game = () => {
 
   return (
     <div className="game-container" style={{ background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
-      <div className="score-display">
+      <div className="score-display" style={{ top: 20, right: 20, left: 'auto' }}>
         <div>分数: {gameState.score}</div>
         <div>🐟 鱼: {gameState.fishCollected}</div>
       </div>
       
-      <div className="instruction">
+      <div className="instruction" style={{ top: 100, right: 20, left: 'auto', textAlign: 'right' }}>
         <div>🎮 躲避冰窟，吃小鱼！</div>
         <div>← → 移动 | 空格/上 跳跃</div>
         <div>摄像头跳跃检测</div>
       </div>
 
-      <div className="camera-container" style={{ top: 20, left: 20 }}>
+      <div className="camera-container" style={{ bottom: 20, left: 20, top: 'auto' }}>
         {videoElement && (
           <video 
             ref={el => { 
@@ -341,7 +341,7 @@ export const Game = () => {
           const x = getLaneX(obj.lane, obj.progress);
           const y = getObjectY(obj.progress);
           const scale = getObjectScale(obj.progress);
-          const size = obj.type === 'hole' ? 30 : 20;
+          const size = obj.type === 'hole' ? 80 : 50;
 
           return (
             <div
@@ -363,7 +363,7 @@ export const Game = () => {
                   background: 'radial-gradient(ellipse at center, #0a0a1a 0%, #1a1a3a 100%)',
                   borderRadius: '50%',
                   boxShadow: '0 0 10px rgba(0,0,0,0.8)',
-                  border: '2px solid rgba(100,150,200,0.3)',
+                  border: '3px solid rgba(100,150,200,0.3)',
                 }} />
               ) : (
                 <div style={{
@@ -372,7 +372,7 @@ export const Game = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '20px',
+                  fontSize: '30px',
                   animation: 'fishBounce 0.3s ease-in-out infinite',
                 }}>
                   🐟
