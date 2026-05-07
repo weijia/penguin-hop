@@ -41,7 +41,10 @@ jobs:
         run: |
           curl -s -X DELETE \
             -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
-            "${{ secrets.WEBDAV_URL }}/online/penguin-hop/" || true
+            "${{ secrets.WEBDAV_URL }}/online/penguin-hop" || true
+          curl -s -X MKCOL \
+            -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+            "${{ secrets.WEBDAV_URL }}/online/penguin-hop" || true
 
       - name: Upload to WebDAV
         uses: weijia/action-upload-webdav@master
