@@ -11,6 +11,8 @@ interface Keypoint {
 
 interface PoseDetectionResult {
   isJumping: boolean;
+  isMovingLeft: boolean;
+  isMovingRight: boolean;
   confidence: number;
   videoElement: HTMLVideoElement | null;
   keypoints: Keypoint[];
@@ -21,6 +23,8 @@ interface PoseDetectionResult {
 export const usePoseDetection = () => {
   const [result, setResult] = useState<PoseDetectionResult>({
     isJumping: false,
+    isMovingLeft: false,
+    isMovingRight: false,
     confidence: 0,
     videoElement: null,
     keypoints: [],
@@ -30,27 +34,26 @@ export const usePoseDetection = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
   const lastYRef = useRef<number>(0);
+  const lastXRef = useRef<number>(0);
   const isJumpingRef = useRef<boolean>(false);
   const jumpCooldownRef = useRef<number>(0);
 
   const detectJump = useCallback((y: number) => {
-    const jumpThreshold = 20;
+    const jumpThreshold = 25;
     const timeSinceLastJump = Date.now() - jumpCooldownRef.current;
     
-    if (timeSinceLastJump > 800) {
+    if (timeSinceLastJump > 600) {
       const diff = lastYRef.current - y;
-      console.log(`Jump detection: diff=${diff.toFixed(1)}, threshold=${jumpThreshold}, lastY=${lastYRef.current.toFixed(1)}, currentY=${y.toFixed(1)}`);
       
       if (diff > jumpThreshold && !isJumpingRef.current) {
         isJumpingRef.current = true;
         jumpCooldownRef.current = Date.now();
-        console.log('JUMP DETECTED!');
         setResult(prev => ({ ...prev, isJumping: true }));
         
         setTimeout(() => {
           isJumpingRef.current = false;
           setResult(prev => ({ ...prev, isJumping: false }));
-        }, 300);
+        }, 400);
       }
     }
     lastYRef.current = y;
@@ -62,13 +65,8 @@ export const usePoseDetection = () => {
     
     const init = async () => {
       try {
-        console.log('Initializing TensorFlow.js...');
         await tf.ready();
         
-        const backends = tf.getBackend();
-        console.log('TensorFlow.js ready, backend:', backends);
-        
-        console.log('Requesting camera access...');
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             width: 320, 
@@ -77,8 +75,6 @@ export const usePoseDetection = () => {
           } 
         });
         
-        console.log('Camera access granted');
-        
         if (!videoRef.current) {
           const video = document.createElement('video');
           video.autoplay = true;
@@ -86,24 +82,22 @@ export const usePoseDetection = () => {
           video.srcObject = stream;
           videoRef.current = video;
           setResult(prev => ({ ...prev, videoElement: video }));
-        } else {
-          videoRef.current.srcObject = stream;
         }
 
         await videoRef.current.play();
-        console.log('Video started playing');
 
-        console.log('Creating pose detector...');
         const detector = await poseDetection.createDetector(
           poseDetection.SupportedModels.MoveNet,
           { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
         );
         detectorRef.current = detector;
         isInitialized = true;
-        console.log('Pose detector initialized');
 
         const detect = async () => {
-          if (!detectorRef.current || !videoRef.current || !isInitialized) return;
+          if (!detectorRef.current || !videoRef.current || !isInitialized) {
+            animationId = requestAnimationFrame(detect);
+            return;
+          }
 
           try {
             const poses = await detectorRef.current.estimatePoses(videoRef.current);
@@ -111,9 +105,11 @@ export const usePoseDetection = () => {
             if (poses.length > 0) {
               const pose = poses[0];
               const nose = pose.keypoints.find(k => k.name === 'nose');
+              const leftShoulder = pose.keypoints.find(k => k.name === 'left_shoulder');
+              const rightShoulder = pose.keypoints.find(k => k.name === 'right_shoulder');
               
               const keypoints = pose.keypoints
-                .filter(k => k.score > 0.3)
+                .filter(k => k.score > 0.25)
                 .map(k => ({
                   x: k.x,
                   y: k.y,
@@ -121,7 +117,25 @@ export const usePoseDetection = () => {
                   name: k.name
                 }));
               
-              if (nose && nose.score > 0.3) {
+              let isMovingLeft = false;
+              let isMovingRight = false;
+              
+              if (leftShoulder && rightShoulder && 
+                  leftShoulder.score > 0.3 && rightShoulder.score > 0.3) {
+                const shoulderDiff = rightShoulder.x - leftShoulder.x;
+                const lastShoulderDiff = lastXRef.current !== 0 ? lastYRef.current : shoulderDiff;
+                
+                if (Math.abs(shoulderDiff - lastShoulderDiff) > 30) {
+                  if (shoulderDiff < lastShoulderDiff) {
+                    isMovingLeft = true;
+                  } else {
+                    isMovingRight = true;
+                  }
+                }
+                lastXRef.current = shoulderDiff;
+              }
+              
+              if (nose && nose.score > 0.25) {
                 detectJump(nose.y);
                 setResult(prev => ({ 
                   ...prev, 
@@ -129,12 +143,16 @@ export const usePoseDetection = () => {
                   keypoints,
                   noseY: nose.y,
                   lastY: lastYRef.current,
+                  isMovingLeft,
+                  isMovingRight,
                 }));
               } else {
                 setResult(prev => ({ 
                   ...prev, 
                   keypoints,
                   confidence: nose?.score || 0,
+                  isMovingLeft,
+                  isMovingRight,
                 }));
               }
             }

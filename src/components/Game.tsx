@@ -21,13 +21,16 @@ interface GameState {
 }
 
 const LANE_COUNT = 5;
-const BASE_PENGUIN_Y = 85;
+const BASE_PENGUIN_Y = 90;
 const VANISHING_POINT_X = 50;
-const VANISHING_POINT_Y = 30;
+const VANISHING_POINT_Y = 67;
+const ICE_ZONE_TOP = 67;
 
 export const Game = () => {
   const { 
     isJumping: detectedJump, 
+    isMovingLeft: detectedLeft,
+    isMovingRight: detectedRight,
     videoElement, 
     keypoints, 
     confidence,
@@ -172,6 +175,18 @@ export const Game = () => {
       handleJump();
     }
   }, [detectedJump, handleJump]);
+
+  useEffect(() => {
+    if (detectedLeft) {
+      handleMoveLeft();
+    }
+  }, [detectedLeft, handleMoveLeft]);
+
+  useEffect(() => {
+    if (detectedRight) {
+      handleMoveRight();
+    }
+  }, [detectedRight, handleMoveRight]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -428,7 +443,7 @@ export const Game = () => {
           const x = getLaneX(obj.lane, obj.progress);
           const y = getObjectY(obj.progress);
           const scale = getObjectScale(obj.progress);
-          const size = obj.type === 'hole' ? 150 : 50;
+          const size = obj.type === 'hole' ? 350 : 50;
 
           return (
             <div
