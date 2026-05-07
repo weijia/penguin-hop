@@ -52,8 +52,8 @@ export const Game = () => {
 
   const getLaneX = (lane: number, progress: number) => {
     const laneWidth = 100 / (LANE_COUNT - 1);
-    const startX = laneWidth * lane;
-    const x = startX + (50 - startX) * progress;
+    const endX = laneWidth * lane;
+    const x = 50 + (endX - 50) * progress;
     return x;
   };
 
