@@ -55,5 +55,5 @@ jobs:
           webdav-url: ${{ secrets.WEBDAV_URL }}
           webdav-username: ${{ secrets.WEBDAV_USERNAME }}
           webdav-password: ${{ secrets.WEBDAV_PASSWORD }}
-          webdav-root: online/penguin-hop
+          webdav-root: online
           source-directory: ./dist
