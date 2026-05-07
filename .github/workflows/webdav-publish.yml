@@ -1,0 +1,40 @@
+name: "Publish to WebDAV"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        uses: borales/actions-yarn@v5
+        with:
+          cmd: install
+
+      - name: Build the project
+        run: yarn build
+
+      - name: Upload to WebDAV
+        uses: weijia/action-upload-webdav@master
+        with:
+          webdav-url: ${{ secrets.WEBDAV_URL }}
+          webdav-username: ${{ secrets.WEBDAV_USERNAME }}
+          webdav-password: ${{ secrets.WEBDAV_PASSWORD }}
+          webdav-root: online/penguin-hop
+          source-directory: ./dist
