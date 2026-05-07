@@ -216,10 +216,10 @@ body {
 
 .camera-container {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 150px;
-  height: 110px;
+  top: 20px;
+  left: 20px;
+  width: 200px;
+  height: 150px;
   border: 3px solid #fff;
   border-radius: 10px;
   overflow: hidden;
