@@ -50,45 +50,69 @@ export const Game = () => {
   const jumpTimeoutRef = useRef<number>();
   const objectIdRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastVideoSrcRef = useRef<string>('');
 
   useEffect(() => {
     let animationId: number;
+    let lastDrawTime = 0;
     
-    const drawKeypoints = () => {
-      if (!canvasRef.current || !videoElement) return;
+    const drawKeypoints = (timestamp: number) => {
+      if (!canvasRef.current || !videoElement) {
+        animationId = requestAnimationFrame(drawKeypoints);
+        return;
+      }
       
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      const videoSrc = videoElement.srcObject as MediaStream;
+      const shouldRedraw = timestamp - lastDrawTime > 100;
 
-      ctx.strokeStyle = '#00ff00';
-      ctx.fillStyle = '#00ff00';
-      ctx.lineWidth = 2;
+      if (shouldRedraw) {
+        lastDrawTime = timestamp;
 
-      const scaleX = canvas.width / videoElement.videoWidth;
-      const scaleY = canvas.height / videoElement.videoHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      keypoints.forEach(point => {
-        const x = point.x * scaleX;
-        const y = point.y * scaleY;
-        
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        if (point.name) {
-          ctx.font = '10px Arial';
-          ctx.fillText(point.name!, x + 5, y - 5);
+        try {
+          ctx.save();
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
+        } catch (e) {
+          animationId = requestAnimationFrame(drawKeypoints);
+          return;
         }
-      });
+
+        if (keypoints.length > 0 && videoElement.videoWidth > 0) {
+          ctx.strokeStyle = '#00ff00';
+          ctx.fillStyle = '#00ff00';
+          ctx.lineWidth = 2;
+
+          const scaleX = canvas.width / videoElement.videoWidth;
+          const scaleY = canvas.height / videoElement.videoHeight;
+
+          keypoints.forEach(point => {
+            const mirroredX = canvas.width - (point.x * scaleX);
+            const y = point.y * scaleY;
+            
+            ctx.beginPath();
+            ctx.arc(mirroredX, y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            if (point.name) {
+              ctx.font = '10px Arial';
+              ctx.fillText(point.name!, mirroredX + 6, y - 6);
+            }
+          });
+        }
+      }
 
       animationId = requestAnimationFrame(drawKeypoints);
     };
 
-    drawKeypoints();
+    animationId = requestAnimationFrame(drawKeypoints);
 
     return () => {
       if (animationId) {
