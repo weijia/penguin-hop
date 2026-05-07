@@ -1,0 +1,273 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+.game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+  overflow: hidden;
+}
+
+.ice-platform {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 120px;
+  background: linear-gradient(180deg, #B8D4E3 0%, #8FAFD4 100%);
+  border-top: 5px solid #6BA3C7;
+}
+
+.ice-hole {
+  position: absolute;
+  bottom: 120px;
+  width: 80px;
+  height: 40px;
+  background: radial-gradient(ellipse at center, #1E3A5F 0%, #0D2137 100%);
+  border-radius: 50%;
+  box-shadow: inset 0 -5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.penguin {
+  position: absolute;
+  bottom: 120px;
+  width: 60px;
+  height: 80px;
+  transition: bottom 0.1s ease-out;
+}
+
+.penguin-body {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 45px;
+  height: 55px;
+  background: #1a1a1a;
+  border-radius: 50% 50% 45% 45%;
+}
+
+.penguin-head {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 35px;
+  height: 35px;
+  background: #1a1a1a;
+  border-radius: 50%;
+}
+
+.penguin-face {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 15px;
+  background: white;
+  border-radius: 50%;
+}
+
+.penguin-eye {
+  position: absolute;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 50%;
+}
+
+.penguin-eye.left {
+  left: 4px;
+}
+
+.penguin-eye.right {
+  right: 4px;
+}
+
+.penguin-beak {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 6px;
+  background: #FF9800;
+  border-radius: 50%;
+}
+
+.penguin-arm {
+  position: absolute;
+  top: 25px;
+  width: 15px;
+  height: 30px;
+  background: #1a1a1a;
+  border-radius: 50%;
+}
+
+.penguin-arm.left {
+  left: -5px;
+  transform: rotate(-20deg);
+}
+
+.penguin-arm.right {
+  right: -5px;
+  transform: rotate(20deg);
+}
+
+.penguin-foot {
+  position: absolute;
+  bottom: -5px;
+  width: 20px;
+  height: 10px;
+  background: #FF9800;
+  border-radius: 50%;
+}
+
+.penguin-foot.left {
+  left: 5px;
+}
+
+.penguin-foot.right {
+  right: 5px;
+}
+
+.game-over-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.game-over-title {
+  font-size: 4rem;
+  color: white;
+  margin-bottom: 20px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.game-over-score {
+  font-size: 2rem;
+  color: #FFD700;
+  margin-bottom: 30px;
+}
+
+.start-button {
+  padding: 15px 50px;
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.start-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(76, 175, 80, 0.5);
+}
+
+.score-display {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  font-size: 1.5rem;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px 20px;
+  border-radius: 20px;
+}
+
+.instruction {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 1rem;
+  color: white;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px 15px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.camera-container {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 150px;
+  height: 110px;
+  border: 3px solid #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+.camera-container video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.snowflake {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: white;
+  border-radius: 50%;
+  animation: snowfall linear infinite;
+}
+
+@keyframes snowfall {
+  0% {
+    transform: translateY(-20px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+.mountain {
+  position: absolute;
+  bottom: 120px;
+  width: 0;
+  height: 0;
+  border-left: 60px solid transparent;
+  border-right: 60px solid transparent;
+  border-bottom: 100px solid #B8B8B8;
+}
+
+.mountain.small {
+  border-left-width: 40px;
+  border-right-width: 40px;
+  border-bottom-width: 70px;
+}
+
+.mountain.snow {
+  border-bottom-color: #E8E8E8;
+}
