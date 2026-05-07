@@ -341,7 +341,7 @@ export const Game = () => {
           const x = getLaneX(obj.lane, obj.progress);
           const y = getObjectY(obj.progress);
           const scale = getObjectScale(obj.progress);
-          const size = obj.type === 'hole' ? 80 : 50;
+          const size = obj.type === 'hole' ? 150 : 50;
 
           return (
             <div
@@ -359,11 +359,13 @@ export const Game = () => {
               {obj.type === 'hole' ? (
                 <div style={{
                   width: '100%',
-                  height: '100%',
-                  background: 'radial-gradient(ellipse at center, #0a0a1a 0%, #1a1a3a 100%)',
-                  borderRadius: '50%',
-                  boxShadow: '0 0 10px rgba(0,0,0,0.8)',
-                  border: '3px solid rgba(100,150,200,0.3)',
+                  height: '30%',
+                  background: 'linear-gradient(180deg, #0a0a1a 0%, #1a1a3a 50%, #0a0a1a 100%)',
+                  borderRadius: '5px 5px 50% 50%',
+                  boxShadow: '0 0 15px rgba(0,0,0,0.9), inset 0 -5px 20px rgba(0,0,50,0.8)',
+                  border: '3px solid rgba(100,150,200,0.4)',
+                  borderTop: '2px solid rgba(150,200,255,0.2)',
+                  clipPath: 'polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%)',
                 }} />
               ) : (
                 <div style={{
