@@ -99,7 +99,10 @@ export const usePoseDetection = () => {
 
         const detector = await poseDetection.createDetector(
           poseDetection.SupportedModels.MoveNet,
-          { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+          { 
+            modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+            modelUrl: 'https://cdn.jsdelivr.net/npm/@tensorflow-models/movenet@0.0.6/singlepose-lightning/model.json'
+          }
         );
         detectorRef.current = detector;
         isInitialized = true;
