@@ -374,7 +374,6 @@ export const Game = () => {
             width: '100%', 
             height: '100%',
             pointerEvents: 'none',
-            transform: 'scaleX(-1)',
             zIndex: 2,
           }} 
         />
@@ -388,7 +387,7 @@ export const Game = () => {
             autoPlay 
             playsInline 
             muted
-            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         )}
         <div style={{
