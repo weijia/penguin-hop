@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as poseDetection from '@tensorflow-models/pose-detection';
-import * as tf from '@tensorflow/tfjs';
 
 interface Keypoint {
   x: number;
@@ -76,8 +75,6 @@ export const usePoseDetection = () => {
     
     const init = async () => {
       try {
-        await tf.ready();
-        
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             width: 320, 
@@ -97,13 +94,14 @@ export const usePoseDetection = () => {
 
         await videoRef.current.play();
 
-        // 使用 MediaPipe Pose 替代 MoveNet，避免 CORS 问题
+        // 使用 MediaPipe 运行时，通过脚本注入加载模型，避免 CORS 问题
         const detector = await poseDetection.createDetector(
           poseDetection.SupportedModels.BlazePose,
           {
-            runtime: 'tfjs',
+            runtime: 'mediapipe',
             modelType: 'lite',
-            enableSmoothing: true
+            enableSmoothing: true,
+            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404'
           }
         );
         detectorRef.current = detector;
