@@ -136,7 +136,7 @@ export const usePoseDetection = () => {
                   confidence: nose.score,
                   keypoints,
                   noseY: nose.y,
-                  noseX: nose.x,
+                  noseX: videoRef.current?.videoWidth ? videoRef.current.videoWidth - nose.x : nose.x,
                 }));
               } else {
                 setResult(prev => ({ 
