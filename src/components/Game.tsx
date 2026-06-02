@@ -137,7 +137,9 @@ export const Game = () => {
   const getLaneX = (lane: number, progress: number) => {
     const laneStartX = 20 + lane * 15;
     const targetLaneX = 33 + lane * 8.5;
-    const x = laneStartX + (targetLaneX - laneStartX) * progress;
+    // 使用透视插值 - 越接近消失点变化越快
+    const t = 1 - Math.sqrt(1 - progress);
+    const x = laneStartX + (targetLaneX - laneStartX) * t;
     return Math.max(20, Math.min(80, x));
   };
 
@@ -428,6 +430,8 @@ export const Game = () => {
 
         {[...Array(5)].map((_, lane) => {
           const startX = 20 + lane * 15;
+          const endX = 33 + lane * 8.5;
+          const angle = (lane - 2) * 15; // 中间的车道角度小，两边大
           return (
             <div
               key={`grid-${lane}`}
@@ -439,6 +443,7 @@ export const Game = () => {
                 height: `${iceZoneBottom - iceZoneTop}%`,
                 background: 'linear-gradient(to bottom, rgba(150,200,255,0.3), rgba(150,200,255,0.6))',
                 transformOrigin: 'top center',
+                transform: `rotate(${angle}deg)`,
               }}
             />
           );
