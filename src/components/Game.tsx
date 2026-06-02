@@ -199,7 +199,7 @@ export const Game = () => {
   useEffect(() => {
     if (noseX > 0 && gameState.isPlaying) {
       const normalizedX = 1 - (noseX / 320);
-      const clampedX = Math.max(0.2, Math.min(0.8, 0.2 + normalizedX * 0.6));
+      const clampedX = Math.max(0.05, Math.min(0.95, 0.05 + normalizedX * 0.9));
       setGameState(prev => ({ ...prev, penguinPosition: clampedX }));
     }
   }, [noseX, gameState.isPlaying]);
