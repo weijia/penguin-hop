@@ -131,12 +131,14 @@ export const usePoseDetection = () => {
               
               if (nose && nose.score > 0.25) {
                 detectMovement(nose.x, nose.y);
+                const videoWidth = videoRef.current?.videoWidth || 320;
+                const mirroredX = videoWidth - nose.x;
                 setResult(prev => ({ 
                   ...prev, 
                   confidence: nose.score,
                   keypoints,
                   noseY: nose.y,
-                  noseX: videoRef.current?.videoWidth ? videoRef.current.videoWidth - nose.x : nose.x,
+                  noseX: mirroredX,
                 }));
               } else {
                 setResult(prev => ({ 
