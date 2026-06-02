@@ -97,11 +97,13 @@ export const usePoseDetection = () => {
 
         await videoRef.current.play();
 
+        // 使用 MediaPipe Pose 替代 MoveNet，避免 CORS 问题
         const detector = await poseDetection.createDetector(
-          poseDetection.SupportedModels.MoveNet,
-          { 
-            modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-            modelUrl: 'https://cdn.jsdelivr.net/npm/@tensorflow-models/movenet@0.0.6/singlepose-lightning/model.json'
+          poseDetection.SupportedModels.BlazePose,
+          {
+            runtime: 'tfjs',
+            modelType: 'lite',
+            enableSmoothing: true
           }
         );
         detectorRef.current = detector;
