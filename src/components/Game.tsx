@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePoseDetection } from '../hooks/usePoseDetection';
+import { useViewport } from '../hooks/useViewport';
 
 interface MovingObject {
   id: number;
@@ -25,6 +26,11 @@ const VANISHING_POINT_Y = 70;
 const ICE_ZONE_TOP = 70;
 const ICE_ZONE_BOTTOM = 88;
 
+const MOBILE_BASE_PENGUIN_Y = 82;
+const MOBILE_VANISHING_POINT_Y = 55;
+const MOBILE_ICE_ZONE_TOP = 55;
+const MOBILE_ICE_ZONE_BOTTOM = 82;
+
 export const Game = () => {
   const { 
     isJumping: detectedJump, 
@@ -34,7 +40,13 @@ export const Game = () => {
     confidence,
     noseX,
   } = usePoseDetection();
-  
+
+  const { isMobile, isPortrait } = useViewport();
+
+  const basePenguinY = isMobile ? MOBILE_BASE_PENGUIN_Y : BASE_PENGUIN_Y;
+  const vanishingPointY = isMobile ? MOBILE_VANISHING_POINT_Y : VANISHING_POINT_Y;
+  const iceZoneTop = isMobile ? MOBILE_ICE_ZONE_TOP : ICE_ZONE_TOP;
+  const iceZoneBottom = isMobile ? MOBILE_ICE_ZONE_BOTTOM : ICE_ZONE_BOTTOM;
   const [gameState, setGameState] = useState<GameState>({
     score: 0,
     fishCollected: 0,
@@ -124,13 +136,14 @@ export const Game = () => {
 
   const getLaneX = (lane: number, progress: number) => {
     const laneStartX = 20 + lane * 15;
-    const x = 50 + (laneStartX - 50) * progress;
+    const targetLaneX = 33 + lane * 8.5;
+    const x = laneStartX + (targetLaneX - laneStartX) * progress;
     return Math.max(20, Math.min(80, x));
   };
 
   const getObjectY = (progress: number) => {
-    const startY = VANISHING_POINT_Y;
-    const endY = BASE_PENGUIN_Y;
+    const startY = vanishingPointY;
+    const endY = basePenguinY;
     return startY + (endY - startY) * progress;
   };
 
@@ -343,7 +356,13 @@ export const Game = () => {
         <div>摄像头跳跃检测</div>
       </div>
 
-      <div className="camera-container" style={{ bottom: 20, left: 20, top: 'auto' }}>
+      <div className="camera-container" style={{
+        bottom: isMobile ? 80 : 20,
+        left: 20,
+        top: 'auto',
+        width: isMobile ? 110 : 200,
+        height: isMobile ? 80 : 150,
+      }}>
         <canvas 
           ref={canvasRef}
           width={320}
@@ -398,7 +417,7 @@ export const Game = () => {
       }}>
         <div style={{
           position: 'absolute',
-          top: `${VANISHING_POINT_Y}%`,
+          top: `${vanishingPointY}%`,
           left: '50%',
           transform: 'translateX(-50%)',
           width: 4,
@@ -415,10 +434,10 @@ export const Game = () => {
               key={`grid-${lane}`}
               style={{
                 position: 'absolute',
-                top: `${VANISHING_POINT_Y}%`,
+                top: `${vanishingPointY}%`,
                 left: `${startX}%`,
                 width: 2,
-                height: `${ICE_ZONE_BOTTOM - ICE_ZONE_TOP}%`,
+                height: `${iceZoneBottom - iceZoneTop}%`,
                 background: 'linear-gradient(to bottom, rgba(150,200,255,0.3), rgba(150,200,255,0.6))',
                 transformOrigin: 'top center',
               }}
@@ -430,7 +449,7 @@ export const Game = () => {
           const x = getLaneX(obj.lane, obj.progress);
           const y = getObjectY(obj.progress);
           const scale = getObjectScale(obj.progress);
-          const size = obj.type === 'hole' ? 200 : 50;
+          const size = obj.type === 'hole' ? (isMobile ? 140 : 200) : (isMobile ? 36 : 50);
 
           return (
             <div
@@ -475,7 +494,7 @@ export const Game = () => {
 
         <div style={{
           position: 'absolute',
-          top: `${BASE_PENGUIN_Y + 5}%`,
+          top: `${basePenguinY + 5}%`,
           left: 0,
           width: '100%',
           height: '20%',
@@ -504,7 +523,7 @@ export const Game = () => {
           style={{
             position: 'absolute',
             left: `${gameState.penguinPosition * 100}%`,
-            top: `${BASE_PENGUIN_Y}%`,
+            top: `${basePenguinY}%`,
             transform: `translate(-50%, -100%) ${gameState.isJumping ? 'translateY(-30px)' : ''}`,
             transition: 'left 0.15s ease-out, transform 0.3s ease-out',
             zIndex: 10,
