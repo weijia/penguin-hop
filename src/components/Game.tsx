@@ -22,13 +22,13 @@ interface GameState {
 }
 
 const BASE_PENGUIN_Y = 88;
-const VANISHING_POINT_Y = 70;
-const ICE_ZONE_TOP = 70;
+const VANISHING_POINT_Y = 15; // 消失点在屏幕上方远处
+const ICE_ZONE_TOP = 15;
 const ICE_ZONE_BOTTOM = 88;
 
 const MOBILE_BASE_PENGUIN_Y = 82;
-const MOBILE_VANISHING_POINT_Y = 55;
-const MOBILE_ICE_ZONE_TOP = 55;
+const MOBILE_VANISHING_POINT_Y = 10; // 移动端消失点在屏幕上方
+const MOBILE_ICE_ZONE_TOP = 10;
 const MOBILE_ICE_ZONE_BOTTOM = 82;
 
 export const Game = () => {
@@ -135,12 +135,15 @@ export const Game = () => {
   }, [videoElement, keypoints]);
 
   const getLaneX = (lane: number, progress: number) => {
-    const laneStartX = 20 + lane * 15;
-    const targetLaneX = 33 + lane * 8.5;
-    // 使用透视插值 - 越接近消失点变化越快
+    const vanishingPointX = 50;
+    const laneEndX = 20 + lane * 15;
+    
+    // 线性透视：从消失点到终点的直线
+    // 使用非线性进度使移动更自然（近处移动更快）
     const t = 1 - Math.sqrt(1 - progress);
-    const x = laneStartX + (targetLaneX - laneStartX) * t;
-    return Math.max(20, Math.min(80, x));
+    const x = vanishingPointX + (laneEndX - vanishingPointX) * t;
+    
+    return Math.max(5, Math.min(95, x));
   };
 
   const getObjectY = (progress: number) => {
@@ -428,26 +431,50 @@ export const Game = () => {
           boxShadow: '0 0 20px #fff',
         }} />
 
-        {[...Array(5)].map((_, lane) => {
-          const startX = 20 + lane * 15;
-          const endX = 33 + lane * 8.5;
-          const angle = (lane - 2) * 15; // 中间的车道角度小，两边大
-          return (
-            <div
-              key={`grid-${lane}`}
-              style={{
-                position: 'absolute',
-                top: `${vanishingPointY}%`,
-                left: `${startX}%`,
-                width: 2,
-                height: `${iceZoneBottom - iceZoneTop}%`,
-                background: 'linear-gradient(to bottom, rgba(150,200,255,0.3), rgba(150,200,255,0.6))',
-                transformOrigin: 'top center',
-                transform: `rotate(${angle}deg)`,
-              }}
-            />
-          );
-        })}
+        <svg style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+        }}>
+          {[...Array(5)].map((_, lane) => {
+            const laneEndX = 20 + lane * 15;
+            const vanishingPointX = 50;
+            
+            return (
+              <line
+                key={`grid-${lane}`}
+                x1={`${vanishingPointX}%`}
+                y1={`${vanishingPointY}%`}
+                x2={`${laneEndX}%`}
+                y2={`${iceZoneBottom}%`}
+                stroke="rgba(150,200,255,0.5)"
+                strokeWidth="2"
+              />
+            );
+          })}
+          
+          {/* 横线 - 增加透视感 */}
+          {[0.25, 0.5, 0.75].map((t, i) => {
+            const y = vanishingPointY + (iceZoneBottom - vanishingPointY) * t;
+            const leftX = getLaneX(0, t);
+            const rightX = getLaneX(4, t);
+            
+            return (
+              <line
+                key={`h-grid-${i}`}
+                x1={`${leftX}%`}
+                y1={`${y}%`}
+                x2={`${rightX}%`}
+                y2={`${y}%`}
+                stroke="rgba(150,200,255,0.3)"
+                strokeWidth="1"
+              />
+            );
+          })}
+        </svg>
 
         {gameState.objects.map(obj => {
           const x = getLaneX(obj.lane, obj.progress);
