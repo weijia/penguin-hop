@@ -275,7 +275,7 @@ export const Game = () => {
           lastSpawnTimeRef.current = now;
         }
 
-        const moveSpeed = 0.08 * prev.difficulty * deltaTime;
+        const moveSpeed = 0.04 * prev.difficulty * deltaTime;
         let collision = false;
         let fishCaught = 0;
 
