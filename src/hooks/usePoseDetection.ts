@@ -38,14 +38,14 @@ export const usePoseDetection = () => {
   const jumpCooldownRef = useRef<number>(0);
 
   const detectMovement = useCallback((noseX: number, noseY: number) => {
-    const jumpThreshold = 30;
-    const moveThreshold = 20;
+    const jumpThreshold = 15; // 降低阈值，使跳跃检测更敏感
+    const moveThreshold = 15;
     const timeSinceLastJump = Date.now() - jumpCooldownRef.current;
     
     const diffY = lastYRef.current - noseY;
     const diffX = noseX - lastXRef.current;
 
-    if (timeSinceLastJump > 600 && diffY > jumpThreshold && !isJumpingRef.current) {
+    if (timeSinceLastJump > 500 && diffY > jumpThreshold && !isJumpingRef.current) {
       isJumpingRef.current = true;
       jumpCooldownRef.current = Date.now();
       setResult(prev => ({ 
