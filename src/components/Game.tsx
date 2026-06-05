@@ -204,7 +204,8 @@ export const Game = () => {
   useEffect(() => {
     if (noseX > 0 && gameState.isPlaying) {
       // 以屏幕中线为0点，-1到1的范围
-      const centeredX = (noseX - 160) / 160; // 中线160，范围-1到1
+      // 视频是镜像的，所以需要反转坐标
+      const centeredX = (160 - noseX) / 160; // 中线160，反转后范围-1到1
       // 1:2的比例，头部移动1，企鹅移动2
       const penguinX = 0.5 + centeredX * 0.8; // 乘以0.8是为了让范围在0.1-0.9之间
       const clampedX = Math.max(0.1, Math.min(0.9, penguinX));
