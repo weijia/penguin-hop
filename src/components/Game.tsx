@@ -460,24 +460,22 @@ export const Game = () => {
             );
           })}
           
-          {/* 横线 - 增加透视感 */}
-          {[0.25, 0.5, 0.75].map((t, i) => {
-            const y = vanishingPointY + (iceZoneBottom - vanishingPointY) * t;
-            const leftX = getLaneX(0, t);
-            const rightX = getLaneX(4, t);
-            
-            return (
-              <line
-                key={`h-grid-${i}`}
-                x1={`${leftX}%`}
-                y1={`${y}%`}
-                x2={`${rightX}%`}
-                y2={`${y}%`}
-                stroke="rgba(150,200,255,0.3)"
-                strokeWidth="1"
-              />
-            );
-          })}
+          {/* 横线 - 从远处向近处移动 */}
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={`h-grid-animated-${i}`}
+              className="grid-line"
+              style={{
+                position: 'absolute',
+                top: `${vanishingPointY}%`,
+                left: '5%',
+                width: '90%',
+                height: 2,
+                background: 'linear-gradient(90deg, rgba(150,200,255,0.2), rgba(150,200,255,0.5), rgba(150,200,255,0.2))',
+                transformOrigin: 'center',
+              }}
+            />
+          ))}
         </svg>
 
         {gameState.objects.map(obj => {
@@ -672,6 +670,36 @@ export const Game = () => {
           0% { opacity: 1; transform: translateY(0); }
           100% { opacity: 0; transform: translateY(-20px); }
         }
+        @keyframes gridLineMove {
+          0% {
+            transform: translateY(0) scaleX(0.02);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.8;
+          }
+          50% {
+            opacity: 0.6;
+          }
+          90% {
+            opacity: 0.8;
+          }
+          100% {
+            transform: translateY(calc(100vh * 0.73)) scaleX(1);
+            opacity: 0;
+          }
+        }
+        .grid-line {
+          animation: gridLineMove 3s linear infinite;
+          transform-origin: center;
+        }
+        .grid-line:nth-child(1) { animation-delay: 0s; }
+        .grid-line:nth-child(2) { animation-delay: 0.75s; }
+        .grid-line:nth-child(3) { animation-delay: 1.5s; }
+        .grid-line:nth-child(4) { animation-delay: 2.25s; }
+        .grid-line:nth-child(5) { animation-delay: 0.5s; }
+        .grid-line:nth-child(6) { animation-delay: 1.25s; }
+        .grid-line:nth-child(7) { animation-delay: 2s; }
       `}</style>
 
       {gameState.isGameOver && (
