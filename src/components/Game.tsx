@@ -136,7 +136,7 @@ export const Game = () => {
 
   const getLaneX = (lane: number, progress: number) => {
     const vanishingPointX = 50;
-    const laneEndX = 20 + lane * 15;
+    const laneEndX = 10 + lane * 20; // 加宽底部车道范围
     
     // 线性透视：从消失点到终点的直线
     // 使用非线性进度使移动更自然（近处移动更快）
@@ -173,7 +173,7 @@ export const Game = () => {
     if (!gameState.isPlaying || gameState.isGameOver) return;
     setGameState(prev => ({ 
       ...prev, 
-      penguinPosition: Math.max(0.2, prev.penguinPosition - 0.15) 
+      penguinPosition: Math.max(0.1, prev.penguinPosition - 0.15) 
     }));
   }, [gameState.isPlaying, gameState.isGameOver]);
 
@@ -181,7 +181,7 @@ export const Game = () => {
     if (!gameState.isPlaying || gameState.isGameOver) return;
     setGameState(prev => ({ 
       ...prev, 
-      penguinPosition: Math.min(0.8, prev.penguinPosition + 0.15) 
+      penguinPosition: Math.min(0.9, prev.penguinPosition + 0.15) 
     }));
   }, [gameState.isPlaying, gameState.isGameOver]);
 
@@ -204,7 +204,8 @@ export const Game = () => {
   useEffect(() => {
     if (noseX > 0 && gameState.isPlaying) {
       const normalizedX = 1 - (noseX / 320);
-      const clampedX = Math.max(0.05, Math.min(0.95, 0.05 + normalizedX * 0.9));
+      // 1:2的比例，头部移动1，企鹅移动2
+      const clampedX = Math.max(0.1, Math.min(0.9, 0.1 + normalizedX * 1.8));
       setGameState(prev => ({ ...prev, penguinPosition: clampedX }));
     }
   }, [noseX, gameState.isPlaying]);
@@ -288,7 +289,7 @@ export const Game = () => {
               }
 
               const penguinPos = prev.penguinPosition;
-              const objLanePos = 0.2 + (obj.lane / 4) * 0.6;
+              const objLanePos = 0.1 + (obj.lane / 4) * 0.8; // 底部范围10%-90%
               const isNearPenguin = Math.abs(objLanePos - penguinPos) < 0.15;
 
               if (obj.type === 'fish' && isNearPenguin && prev.isJumping) {
