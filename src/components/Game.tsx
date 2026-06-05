@@ -203,9 +203,11 @@ export const Game = () => {
 
   useEffect(() => {
     if (noseX > 0 && gameState.isPlaying) {
-      const normalizedX = 1 - (noseX / 320);
+      // 以屏幕中线为0点，-1到1的范围
+      const centeredX = (noseX - 160) / 160; // 中线160，范围-1到1
       // 1:2的比例，头部移动1，企鹅移动2
-      const clampedX = Math.max(0.1, Math.min(0.9, 0.1 + normalizedX * 1.8));
+      const penguinX = 0.5 + centeredX * 0.8; // 乘以0.8是为了让范围在0.1-0.9之间
+      const clampedX = Math.max(0.1, Math.min(0.9, penguinX));
       setGameState(prev => ({ ...prev, penguinPosition: clampedX }));
     }
   }, [noseX, gameState.isPlaying]);
